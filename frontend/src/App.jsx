@@ -9,6 +9,7 @@ import CashReceiptVoucherList from './pages/CashReceiptVoucherList';
 import CashPaymentVoucherForm from './pages/CashPaymentVoucherForm';
 import CashPaymentVoucherList from './pages/CashPaymentVoucherList';
 import Login from './pages/Login';
+import AllVouchers from './pages/AllVouchers';
 
 // Simple placeholder pages for now
 const Dashboard = () => <h2>Dashboard</h2>;
@@ -44,6 +45,7 @@ function App() {
           <Route path="/cash-receipt-vouchers/list" element={<CashReceiptVoucherList />} />  
           <Route path="/cash-payment-vouchers" element={<CashPaymentVoucherForm />} />
           <Route path="/cash-payment-vouchers/list" element={<CashPaymentVoucherList />} />     
+          <Route path="/all-vouchers" element={<AllVouchers />} />
           <Route path="/invoices" element={<Invoices />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/reports" element={<Reports />} />

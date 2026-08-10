@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { authorize } = require('../middleware/authMiddleware');
 const {
   createCashPaymentVoucher,
   getCashPaymentVouchers,
@@ -15,7 +16,7 @@ router.get('/next-voucher-no', previewNextVoucherNo);
 router.post('/', createCashPaymentVoucher);
 router.get('/', getCashPaymentVouchers);
 router.get('/:id', getCashPaymentVoucherById);
-router.put('/:id', updateCashPaymentVoucher);
-router.delete('/:id', deleteCashPaymentVoucher);
+router.put('/:id', authorize('admin'), updateCashPaymentVoucher);
+router.delete('/:id', authorize('admin'), deleteCashPaymentVoucher);
 
 module.exports = router;

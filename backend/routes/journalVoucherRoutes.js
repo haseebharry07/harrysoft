@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { authorize } = require('../middleware/authMiddleware');
 const {
   createJournalVoucher,
   getJournalVouchers,
@@ -15,7 +16,7 @@ router.get('/next-voucher-no', previewNextVoucherNo);
 router.post('/', createJournalVoucher);
 router.get('/', getJournalVouchers);
 router.get('/:id', getJournalVoucherById);
-router.put('/:id', updateJournalVoucher);
-router.delete('/:id', deleteJournalVoucher);
+router.put('/:id', authorize('admin'), updateJournalVoucher);
+router.delete('/:id', authorize('admin'), deleteJournalVoucher);
 
 module.exports = router;

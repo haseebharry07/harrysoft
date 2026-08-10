@@ -6,6 +6,7 @@ const menuItems = [
   { label: 'Journal Voucher', path: '/journal-voucher' },
   { label: 'Cash Receipt Voucher', path: '/cash-receipt-vouchers' },
   { label: 'Cash Payment Voucher', path: '/cash-payment-vouchers' },
+  { label: 'All Vouchers', path: '/all-vouchers' },
   { label: 'Invoices', path: '/invoices' },
   { label: 'Customers', path: '/customers' },
   { label: 'Reports', path: '/reports' },
