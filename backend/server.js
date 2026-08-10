@@ -5,21 +5,23 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const { protect } = require('./middleware/authMiddleware');
 
 connectDB();
 
 const app = express();
 
-app.use(cors());
+app.use(cors({ origin: process.env.CLIENT_URL || true }));
 app.use(express.json());
 
-app.use('/api/accounts', require('./routes/accountRoutes'));
-app.use('/api/transactions', require('./routes/transactionRoutes'));
-app.use('/api/invoices', require('./routes/invoiceRoutes'));
-app.use('/api/customers', require('./routes/customerRoutes'));
-app.use('/api/journal-vouchers', require('./routes/journalVoucherRoutes'));
-app.use('/api/cash-receipt-vouchers', require('./routes/cashReceiptVoucherRoutes'));
-app.use('/api/cash-payment-vouchers', require('./routes/cashPaymentVoucherRoutes'))
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/accounts', protect, require('./routes/accountRoutes'));
+app.use('/api/transactions', protect, require('./routes/transactionRoutes'));
+app.use('/api/invoices', protect, require('./routes/invoiceRoutes'));
+app.use('/api/customers', protect, require('./routes/customerRoutes'));
+app.use('/api/journal-vouchers', protect, require('./routes/journalVoucherRoutes'));
+app.use('/api/cash-receipt-vouchers', protect, require('./routes/cashReceiptVoucherRoutes'));
+app.use('/api/cash-payment-vouchers', protect, require('./routes/cashPaymentVoucherRoutes'))
 
 const PORT = process.env.PORT || 5000;
 
