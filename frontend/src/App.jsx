@@ -10,6 +10,10 @@ import CashPaymentVoucherForm from './pages/CashPaymentVoucherForm';
 import CashPaymentVoucherList from './pages/CashPaymentVoucherList';
 import Login from './pages/Login';
 import AllVouchers from './pages/AllVouchers';
+import Ledger from './pages/Ledger';
+import TrialBalance from './pages/TrialBalance';
+import ProfitLoss from './pages/ProfitLoss';
+import AnnualReport from './pages/AnnualReport';
 
 // Simple placeholder pages for now
 const Dashboard = () => <h2>Dashboard</h2>;
@@ -46,6 +50,10 @@ function App() {
           <Route path="/cash-payment-vouchers" element={<CashPaymentVoucherForm />} />
           <Route path="/cash-payment-vouchers/list" element={<CashPaymentVoucherList />} />     
           <Route path="/all-vouchers" element={<AllVouchers />} />
+          <Route path="/ledger" element={<Ledger />} />
+          <Route path="/trial-balance" element={<TrialBalance />} />
+          <Route path="/profit-loss" element={<ProfitLoss />} />
+          <Route path="/annual-report" element={<AnnualReport />} />
           <Route path="/invoices" element={<Invoices />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/reports" element={<Reports />} />

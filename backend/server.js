@@ -22,6 +22,10 @@ app.use('/api/customers', protect, require('./routes/customerRoutes'));
 app.use('/api/journal-vouchers', protect, require('./routes/journalVoucherRoutes'));
 app.use('/api/cash-receipt-vouchers', protect, require('./routes/cashReceiptVoucherRoutes'));
 app.use('/api/cash-payment-vouchers', protect, require('./routes/cashPaymentVoucherRoutes'))
+app.use('/api/ledger', protect, require('./routes/ledgerRoutes'));
+app.use('/api/trial-balance', protect, require('./routes/trialBalanceRoutes'));
+app.use('/api/profit-loss', protect, require('./routes/profitLossRoutes'));
+app.use('/api/annual-report', protect, require('./routes/annualReportRoutes'));
 
 const PORT = process.env.PORT || 5000;
 

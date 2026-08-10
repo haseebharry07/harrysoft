@@ -1,5 +1,6 @@
 const CashPaymentVoucher = require('../models/CashPaymentVoucher');
 const Counter = require('../models/Counter'); // shared generic counter, also used by other vouchers
+const Account = require('../models/Account');
 
 // Voucher numbers are generated as CPV-<seq>. The counter is offset by 877 so the very
 // first voucher generated on a fresh database comes out as CPV-878 (matching the existing
@@ -27,32 +28,32 @@ function computeTotals(entries) {
   );
 }
 
-function validateEntries(entries) {
+async function buildDoubleEntries(entries) {
   if (!Array.isArray(entries) || entries.length === 0) {
-    return 'At least one Account Head line is required.';
+    return { error: 'At least one Account Head line is required.' };
   }
 
+  const cashAccount = await Account.findOne({
+    $or: [
+      { accountName: { $regex: 'cash\\s+in\\s+hand', $options: 'i' } },
+      { accountName: { $regex: 'petty\\s+cash', $options: 'i' } }
+    ]
+  });
+  if (!cashAccount) return { error: 'Create a Cash in Hand or Petty Cash account before making a cash payment voucher.' };
+
+  let totalDebit = 0;
   for (let i = 0; i < entries.length; i++) {
     const line = entries[i];
     if (!line.accountHead) {
-      return `Row ${i + 1}: Account Head is required.`;
+      return { error: `Row ${i + 1}: Account Head is required.` };
     }
+    if (String(line.accountHead) === String(cashAccount._id)) return { error: 'Cash in Hand is added automatically. Select the other account only.' };
     const dr = Number(line.drAmount) || 0;
     const cr = Number(line.crAmount) || 0;
-    if (dr === 0 && cr === 0) {
-      return `Row ${i + 1}: enter a DR or CR amount.`;
-    }
-    if (dr > 0 && cr > 0) {
-      return `Row ${i + 1}: enter only a DR amount or a CR amount, not both.`;
-    }
+    if (dr <= 0 || cr > 0) return { error: `Row ${i + 1}: enter a DR amount only for a cash payment.` };
+    totalDebit += dr;
   }
-
-  const { totalDr, totalCr } = computeTotals(entries);
-  if (totalDr.toFixed(2) !== totalCr.toFixed(2)) {
-    return `Total DR (${totalDr.toFixed(2)}) must equal Total CR (${totalCr.toFixed(2)}).`;
-  }
-
-  return null;
+  return { entries: [...entries.map((line) => ({ accountHead: line.accountHead, drAmount: Number(line.drAmount) || 0, crAmount: 0 })), { accountHead: cashAccount._id, drAmount: 0, crAmount: totalDebit }] };
 }
 
 // @desc  Preview the next voucher number WITHOUT consuming it
@@ -77,12 +78,11 @@ exports.createCashPaymentVoucher = async (req, res) => {
       return res.status(400).json({ message: 'Date is required.' });
     }
 
-    const validationError = validateEntries(entries);
-    if (validationError) {
-      return res.status(400).json({ message: validationError });
-    }
+    const result = await buildDoubleEntries(entries);
+    if (result.error) return res.status(400).json({ message: result.error });
 
-    const { totalDr, totalCr } = computeTotals(entries);
+    const voucherEntries = result.entries;
+    const { totalDr, totalCr } = computeTotals(voucherEntries);
     const voucherNo = await getNextVoucherNo();
 
     const voucher = await CashPaymentVoucher.create({
@@ -92,7 +92,7 @@ exports.createCashPaymentVoucher = async (req, res) => {
       purchase: Number(purchase) || 0,
       sale: Number(sale) || 0,
       cashInHand: Number(cashInHand) || 0,
-      entries,
+      entries: voucherEntries,
       totalDr,
       totalCr
     });
@@ -158,12 +158,11 @@ exports.updateCashPaymentVoucher = async (req, res) => {
       return res.status(400).json({ message: 'Date is required.' });
     }
 
-    const validationError = validateEntries(entries);
-    if (validationError) {
-      return res.status(400).json({ message: validationError });
-    }
+    const result = await buildDoubleEntries(entries);
+    if (result.error) return res.status(400).json({ message: result.error });
 
-    const { totalDr, totalCr } = computeTotals(entries);
+    const voucherEntries = result.entries;
+    const { totalDr, totalCr } = computeTotals(voucherEntries);
 
     const voucher = await CashPaymentVoucher.findByIdAndUpdate(
       req.params.id,
@@ -173,7 +172,7 @@ exports.updateCashPaymentVoucher = async (req, res) => {
         purchase: Number(purchase) || 0,
         sale: Number(sale) || 0,
         cashInHand: Number(cashInHand) || 0,
-        entries,
+        entries: voucherEntries,
         totalDr,
         totalCr
       },

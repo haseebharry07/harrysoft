@@ -34,6 +34,7 @@ export default function JournalVoucherForm({ voucherId = null, onSaved, onCancel
   const isEditMode = Boolean(voucherId);
 
   const [accounts, setAccounts] = useState([]);
+  const [cashAccountId, setCashAccountId] = useState('');
   const [voucherNo, setVoucherNo] = useState('');
   const [cashInHand, setCashInHand] = useState(null);
   const [date, setDate] = useState(todayIso());
@@ -53,10 +54,12 @@ export default function JournalVoucherForm({ voucherId = null, onSaved, onCancel
     const res = await api.get('/accounts');
     setAccounts(res.data);
     const cashAccount = res.data.find((acc) =>
-      (acc.accountName || '').toLowerCase().includes('cash in hand')
+      (acc.accountName || '').toLowerCase().includes('cash in hand') || (acc.accountName || '').toLowerCase().includes('petty cash')
     );
+    setCashAccountId(cashAccount?._id || '');
     if (cashAccount) {
-      setCashInHand((Number(cashAccount.bfDr) || 0) - (Number(cashAccount.bfCr) || 0));
+      const balance = await api.get('/ledger', { params: { accountId: cashAccount._id } });
+      setCashInHand(Number(balance.data.closingBalance) || 0);
     } else {
       setCashInHand(null);
     }
@@ -80,7 +83,6 @@ export default function JournalVoucherForm({ voucherId = null, onSaved, onCancel
     setNarration(v.narration || '');
     setPurchaseQty(v.purchaseQty ?? '');
     setSaleQty(v.saleQty ?? '');
-    setCashInHand(v.cashInHand ?? null);
     setEntries(
       (v.entries || []).map((line) => ({
         accountHead: line.accountHead?._id || line.accountHead || '',
@@ -135,6 +137,7 @@ export default function JournalVoucherForm({ voucherId = null, onSaved, onCancel
   }, [entries]);
 
   const totalsMatch = totals.dr.toFixed(2) === totals.cr.toFixed(2) && totals.dr > 0;
+  const cashEffect = entries.reduce((sum, line) => String(line.accountHead) === String(cashAccountId) ? sum + (Number(line.drAmount) || 0) - (Number(line.crAmount) || 0) : sum, 0);
 
   const validate = () => {
     if (!date) return 'Date is required.';
@@ -261,13 +264,17 @@ export default function JournalVoucherForm({ voucherId = null, onSaved, onCancel
           </div>
 
           <div style={styles.headerField}>
-            <label style={styles.label}>Cash In Hand</label>
+            <label style={styles.label}>Current Cash In Hand</label>
             <input
               type="text"
               readOnly
               value={cashInHand === null ? 'N/A' : cashInHand.toLocaleString()}
               style={{ ...styles.input, background: '#f3f4f6', fontWeight: 'bold' }}
             />
+          </div>
+          <div style={styles.headerField}>
+            <label style={styles.label}>Cash After Voucher</label>
+            <input type="text" readOnly value={cashInHand === null ? 'N/A' : (cashInHand + cashEffect).toLocaleString()} style={{ ...styles.input, background: '#eff6ff', fontWeight: 'bold' }} />
           </div>
         </div>
 

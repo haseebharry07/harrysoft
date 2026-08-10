@@ -1,5 +1,6 @@
 const CashReceiptVoucher = require('../models/CashReceiptVoucher');
 const Counter = require('../models/Counter'); // shared generic counter, also used by Journal Voucher
+const Account = require('../models/Account');
 
 // Voucher numbers are generated as CRV-<seq>. The counter is offset by 877 so the very
 // first voucher generated on a fresh database comes out as CRV-878 (matching the existing
@@ -27,19 +28,32 @@ function computeTotals(entries) {
   );
 }
 
-function validateEntries(entries) {
+async function buildDoubleEntries(entries) {
   if (!Array.isArray(entries) || entries.length === 0) {
-    return 'At least one Account Head line is required.';
+    return { error: 'At least one Account Head line is required.' };
   }
 
+  const cashAccount = await Account.findOne({
+    $or: [
+      { accountName: { $regex: 'cash\\s+in\\s+hand', $options: 'i' } },
+      { accountName: { $regex: 'petty\\s+cash', $options: 'i' } }
+    ]
+  });
+  if (!cashAccount) return { error: 'Create a Cash in Hand or Petty Cash account before making a cash receipt voucher.' };
+
+  let totalCredit = 0;
   for (let i = 0; i < entries.length; i++) {
     const line = entries[i];
     if (!line.accountHead) {
-      return `Row ${i + 1}: Account Head is required.`;
+      return { error: `Row ${i + 1}: Account Head is required.` };
     }
+    if (String(line.accountHead) === String(cashAccount._id)) return { error: 'Cash in Hand is added automatically. Select the other account only.' };
+    const dr = Number(line.drAmount) || 0;
+    const cr = Number(line.crAmount) || 0;
+    if (dr > 0 || cr <= 0) return { error: `Row ${i + 1}: enter a CR amount only for a cash receipt.` };
+    totalCredit += cr;
   }
-
-  return null;
+  return { entries: [{ accountHead: cashAccount._id, drAmount: totalCredit, crAmount: 0 }, ...entries.map((line) => ({ accountHead: line.accountHead, drAmount: 0, crAmount: Number(line.crAmount) || 0 }))] };
 }
 
 // @desc  Preview the next voucher number WITHOUT consuming it
@@ -67,12 +81,11 @@ exports.createCashReceiptVoucher = async (req, res) => {
       return res.status(400).json({ message: 'Narration is required.' });
     }
 
-    const validationError = validateEntries(entries);
-    if (validationError) {
-      return res.status(400).json({ message: validationError });
-    }
+    const result = await buildDoubleEntries(entries);
+    if (result.error) return res.status(400).json({ message: result.error });
 
-    const { totalDr, totalCr } = computeTotals(entries);
+    const voucherEntries = result.entries;
+    const { totalDr, totalCr } = computeTotals(voucherEntries);
     const voucherNo = await getNextVoucherNo();
 
     const voucher = await CashReceiptVoucher.create({
@@ -82,7 +95,7 @@ exports.createCashReceiptVoucher = async (req, res) => {
       purchase: Number(purchase) || 0,
       sale: Number(sale) || 0,
       cashInHand: Number(cashInHand) || 0,
-      entries,
+      entries: voucherEntries,
       totalDr,
       totalCr
     });
@@ -151,12 +164,11 @@ exports.updateCashReceiptVoucher = async (req, res) => {
       return res.status(400).json({ message: 'Narration is required.' });
     }
 
-    const validationError = validateEntries(entries);
-    if (validationError) {
-      return res.status(400).json({ message: validationError });
-    }
+    const result = await buildDoubleEntries(entries);
+    if (result.error) return res.status(400).json({ message: result.error });
 
-    const { totalDr, totalCr } = computeTotals(entries);
+    const voucherEntries = result.entries;
+    const { totalDr, totalCr } = computeTotals(voucherEntries);
 
     const voucher = await CashReceiptVoucher.findByIdAndUpdate(
       req.params.id,
@@ -166,7 +178,7 @@ exports.updateCashReceiptVoucher = async (req, res) => {
         purchase: Number(purchase) || 0,
         sale: Number(sale) || 0,
         cashInHand: Number(cashInHand) || 0,
-        entries,
+        entries: voucherEntries,
         totalDr,
         totalCr
       },

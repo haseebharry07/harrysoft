@@ -34,6 +34,7 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
   const navigate = useNavigate();
 
   const [accounts, setAccounts] = useState([]);
+  const [cashAccountId, setCashAccountId] = useState('');
   const [voucherNo, setVoucherNo] = useState('');
   const [cashInHand, setCashInHand] = useState(null);
   const [date, setDate] = useState(todayIso());
@@ -52,13 +53,16 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
     const res = await api.get('/accounts');
     setAccounts(res.data);
     const cashAccount = res.data.find((acc) =>
-      (acc.accountName || '').toLowerCase().includes('cash in hand')
+      (acc.accountName || '').toLowerCase().includes('cash in hand') || (acc.accountName || '').toLowerCase().includes('petty cash')
     );
+    setCashAccountId(cashAccount?._id || '');
     if (cashAccount) {
-      setCashInHand((Number(cashAccount.bfDr) || 0) - (Number(cashAccount.bfCr) || 0));
+      const balance = await api.get('/ledger', { params: { accountId: cashAccount._id } });
+      setCashInHand(Number(balance.data.closingBalance) || 0);
     } else {
       setCashInHand(null);
     }
+    return res.data;
   };
 
   const loadForCreate = async () => {
@@ -71,7 +75,7 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
     setEntries([emptyEntry()]);
   };
 
-  const loadForEdit = async () => {
+  const loadForEdit = async (accountList = accounts) => {
     const res = await api.get(`/cash-receipt-vouchers/${voucherId}`);
     const v = res.data;
     setVoucherNo(v.voucherNo);
@@ -81,7 +85,7 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
     setSale(v.sale || '');
     setCashInHand(v.cashInHand ?? null);
     setEntries(
-      (v.entries || []).map((line) => ({
+      (v.entries || []).filter((line) => String(line.accountHead?._id || line.accountHead) !== String(accountList.find((acc) => (acc.accountName || '').toLowerCase().includes('cash in hand') || (acc.accountName || '').toLowerCase().includes('petty cash'))?._id || '')).map((line) => ({
         accountHead: line.accountHead?._id || line.accountHead || '',
         drAmount: line.drAmount || '',
         crAmount: line.crAmount || ''
@@ -94,9 +98,9 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
       setInitializing(true);
       setError('');
       try {
-        await loadAccounts();
+        const accountList = await loadAccounts();
         if (isEditMode) {
-          await loadForEdit();
+          await loadForEdit(accountList);
         } else {
           await loadForCreate();
         }
@@ -133,7 +137,8 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
     );
   }, [entries]);
 
-  const totalsMatch = totals.dr.toFixed(2) === totals.cr.toFixed(2) && totals.dr > 0;
+  const cashDebit = totals.cr;
+  const totalsMatch = totals.cr > 0;
 
   const validate = () => {
     if (!date) return 'Date is required.';
@@ -141,6 +146,8 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
     for (let i = 0; i < entries.length; i++) {
       const line = entries[i];
       if (!line.accountHead) return `Row ${i + 1}: select an Account Head.`;
+      if (line.accountHead === cashAccountId) return 'Cash in Hand is added automatically. Select the other account only.';
+      if ((Number(line.drAmount) || 0) > 0 || (Number(line.crAmount) || 0) <= 0) return `Row ${i + 1}: enter a CR amount only.`;
     }
     return '';
   };
@@ -164,7 +171,7 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
       cashInHand: cashInHand ?? 0,
       entries: entries.map((line) => ({
         accountHead: line.accountHead,
-        drAmount: Number(line.drAmount) || 0,
+        drAmount: 0,
         crAmount: Number(line.crAmount) || 0
       }))
     };
@@ -232,13 +239,18 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
           </div>
 
           <div style={styles.headerField}>
-            <label style={styles.label}>Cash In Hand</label>
+            <label style={styles.label}>Current Cash In Hand</label>
             <input
               type="text"
               readOnly
               value={cashInHand === null ? 'N/A' : cashInHand.toLocaleString()}
               style={{ ...styles.input, background: '#f3f4f6', fontWeight: 'bold' }}
             />
+          </div>
+
+          <div style={styles.headerField}>
+            <label style={styles.label}>Cash After Voucher</label>
+            <input type="text" readOnly value={cashInHand === null ? 'N/A' : (cashInHand + cashDebit).toLocaleString()} style={{ ...styles.input, background: '#eff6ff', fontWeight: 'bold' }} />
           </div>
 
           <div style={styles.headerField}>
@@ -277,6 +289,7 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
 
         {/* Entry lines */}
         <div style={{ marginTop: 18 }}>
+          <p style={{ margin: '0 0 10px', color: '#1d4ed8', fontSize: 13 }}>Cash in Hand / Petty Cash will be debited automatically. Select the receiving account and enter its credit amount.</p>
           <div style={styles.entriesHeader}>
             <span style={{ flex: 3 }}>Account Head *</span>
             <span style={{ flex: 1.5 }}>DR Amount</span>
@@ -292,7 +305,7 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
                 onChange={(e) => handleEntryChange(index, 'accountHead', e.target.value)}
               >
                 <option value="">-- Select Account Head --</option>
-                {accounts.map((acc) => (
+                {accounts.filter((acc) => acc._id !== cashAccountId).map((acc) => (
                   <option key={acc._id} value={acc._id}>
                     {acc.accountCode} - {acc.accountName}
                   </option>
@@ -302,9 +315,9 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
               <input
                 type="number"
                 style={{ ...styles.input, flex: 1.5 }}
-                value={line.drAmount}
-                onChange={(e) => handleEntryChange(index, 'drAmount', e.target.value)}
-                placeholder="0"
+                value=""
+                readOnly
+                placeholder="Auto"
               />
 
               <input
@@ -339,13 +352,13 @@ export default function CashReceiptVoucherForm({ voucherId = null, onSaved, onCa
         {/* Totals */}
         <div style={styles.totalsRow}>
           <span>
-            Total DR: <strong>{totals.dr.toFixed(2)}</strong>
+            Total DR: <strong>{cashDebit.toFixed(2)}</strong>
           </span>
           <span>
             Total CR: <strong>{totals.cr.toFixed(2)}</strong>
           </span>
           <span style={{ color: totalsMatch ? '#15803d' : '#b91c1c', fontWeight: 'bold' }}>
-            {totalsMatch ? 'Balanced' : 'Not balanced'}
+            {totalsMatch ? 'Balanced automatically' : 'Enter a credit amount'}
           </span>
         </div>
 
