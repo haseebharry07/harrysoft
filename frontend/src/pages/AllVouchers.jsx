@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import api from '../api/axiosConfig';
 import './AllVouchers.css';
 import JournalVoucherForm from './JournalVoucherForm';
@@ -14,10 +14,11 @@ const formatAmount = (value) => Number(value || 0).toLocaleString(undefined, { m
 
 export default function AllVouchers() {
   const [vouchers, setVouchers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
   const [editingVoucher, setEditingVoucher] = useState(null);
   const isAdmin = JSON.parse(localStorage.getItem('authSession') || 'null')?.user?.role === 'admin';
 
@@ -30,14 +31,11 @@ export default function AllVouchers() {
     } catch (err) { setError(err.response?.data?.message || 'Unable to load vouchers. Please try again.'); }
     finally { setLoading(false); }
   };
-  useEffect(() => { loadVouchers(); }, []);
-
-  const totals = useMemo(() => vouchers.reduce((summary, voucher) => ({ dr: summary.dr + (Number(voucher.totalDr) || 0), cr: summary.cr + (Number(voucher.totalCr) || 0) }), { dr: 0, cr: 0 }), [vouchers]);
-  const difference = totals.dr - totals.cr;
   const filter = (event) => {
     event.preventDefault();
-    if ((fromDate && !toDate) || (!fromDate && toDate)) { setError('Select both dates, or clear both to view all vouchers.'); return; }
+    if (!fromDate || !toDate) { setError('Select both From Date and End Date to view vouchers.'); return; }
     loadVouchers({ fromDate, toDate });
+    setHasSearched(true);
   };
   const deleteVoucher = async (voucher) => {
     if (!window.confirm(`Delete ${voucher.voucherNo}? This cannot be undone.`)) return;
@@ -54,9 +52,9 @@ export default function AllVouchers() {
 
   return <section className="all-vouchers">
     <div className="all-vouchers-heading"><div><h2>All Vouchers</h2><p>Journal, cash receipt, and cash payment vouchers in one view.</p></div></div>
-    <form className="voucher-filter" onSubmit={filter}><label>From date<input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></label><label>To date<input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></label><button type="submit" disabled={loading}>{loading ? 'Loading...' : 'Apply filter'}</button><button type="button" className="clear-filter" onClick={() => { setFromDate(''); setToDate(''); loadVouchers(); }}>Clear</button></form>
+    <form className="voucher-filter" onSubmit={filter}><label>From date<input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></label><label>To date<input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></label><button type="submit" disabled={loading}>{loading ? 'Loading...' : 'Apply filter'}</button><button type="button" className="clear-filter" onClick={() => { setFromDate(''); setToDate(''); setVouchers([]); setHasSearched(false); setError(''); }}>Clear</button></form>
     {error && <div className="voucher-error" role="alert">{error}</div>}
-    {!loading && !error && <div className="voucher-table-wrap"><table className="voucher-table"><thead><tr><th>Date</th><th>Voucher no.</th><th>Voucher type</th><th>Narration</th><th className="amount">Total DR</th><th className="amount">Total CR</th><th className="amount">Difference</th><th>Print</th><th>Edit</th><th>Delete</th></tr></thead><tbody>{vouchers.length ? vouchers.map((voucher) => { const rowDifference = (Number(voucher.totalDr) || 0) - (Number(voucher.totalCr) || 0); return <tr key={`${voucher.type}-${voucher._id}`}><td>{new Date(voucher.date).toLocaleDateString()}</td><td>{voucher.voucherNo}</td><td><span className="voucher-type">{voucher.type}</span></td><td>{voucher.narration || '-'}</td><td className="amount">{formatAmount(voucher.totalDr)}</td><td className="amount">{formatAmount(voucher.totalCr)}</td><td className={`amount ${rowDifference ? 'unbalanced' : ''}`}>{formatAmount(rowDifference)}</td><td><button className="voucher-action print" onClick={() => printVoucher(voucher)}>Print</button></td><td>{isAdmin ? <button className="voucher-action edit" onClick={() => setEditingVoucher(voucher)}>Edit</button> : '-'}</td><td>{isAdmin ? <button className="voucher-action delete" onClick={() => deleteVoucher(voucher)}>Delete</button> : '-'}</td></tr>; }) : <tr><td colSpan="10" className="no-vouchers">No vouchers found for this period.</td></tr>}</tbody><tfoot><tr><td colSpan="4">Grand total ({vouchers.length} voucher{vouchers.length === 1 ? '' : 's'})</td><td className="amount">{formatAmount(totals.dr)}</td><td className="amount">{formatAmount(totals.cr)}</td><td className={`amount ${difference ? 'unbalanced' : ''}`}>{formatAmount(difference)}</td><td colSpan="3"></td></tr></tfoot></table></div>}
+    {hasSearched && !loading && !error && <div className="voucher-table-wrap"><table className="voucher-table"><thead><tr><th>Date</th><th>Voucher no.</th><th>Voucher type</th><th>Account Name</th><th>Print</th><th>Edit</th><th>Delete</th></tr></thead><tbody>{vouchers.length ? vouchers.map((voucher) => <tr key={`${voucher.type}-${voucher._id}`}><td>{new Date(voucher.date).toLocaleDateString()}</td><td>{voucher.voucherNo}</td><td><span className="voucher-type">{voucher.type}</span></td><td>{(voucher.entries || []).map((line) => line.accountHead?.accountName || line.accountHead?.accountCode || 'Unknown account').join(', ')}</td><td><button className="voucher-action print" onClick={() => printVoucher(voucher)}>Print</button></td><td>{isAdmin ? <button className="voucher-action edit" onClick={() => setEditingVoucher(voucher)}>Edit</button> : '-'}</td><td>{isAdmin ? <button className="voucher-action delete" onClick={() => deleteVoucher(voucher)}>Delete</button> : '-'}</td></tr>) : <tr><td colSpan="7" className="no-vouchers">No vouchers found for this period.</td></tr>}</tbody></table></div>}
     {editingVoucher && <div className="voucher-modal-backdrop" onClick={() => setEditingVoucher(null)}><div className="voucher-modal" onClick={(e) => e.stopPropagation()}><editingVoucher.Form voucherId={editingVoucher._id} onSaved={() => { setEditingVoucher(null); loadVouchers({ fromDate, toDate }); }} onCancel={() => setEditingVoucher(null)} /></div></div>}
   </section>;
 }
