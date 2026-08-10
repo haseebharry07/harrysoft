@@ -7,7 +7,7 @@ const {
   updateCashPaymentVoucher,
   deleteCashPaymentVoucher,
   previewNextVoucherNo
-} = require('../controllers/cashPaymentVoucherController');
+} = require('../controllers/CashPaymentVoucherController');
 
 // IMPORTANT: this specific route must be registered before '/:id'
 router.get('/next-voucher-no', previewNextVoucherNo);
