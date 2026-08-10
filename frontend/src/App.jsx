@@ -14,9 +14,8 @@ import Ledger from './pages/Ledger';
 import TrialBalance from './pages/TrialBalance';
 import ProfitLoss from './pages/ProfitLoss';
 import AnnualReport from './pages/AnnualReport';
+import Dashboard from './pages/Dashboard';
 
-// Simple placeholder pages for now
-const Dashboard = () => <h2>Dashboard</h2>;
 const ChartOfAccounts = () => <h2>Chart of Accounts</h2>;
 // const JournalVoucherForm = () => <h2>Journal Voucher</h2>;
 const Invoices = () => <h2>Invoices</h2>;

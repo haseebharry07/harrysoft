@@ -11,9 +11,9 @@ const menuItems = [
   { label: 'Trial Balance', path: '/trial-balance' },
   { label: 'Profit & Loss', path: '/profit-loss' },
   { label: 'Annual Report', path: '/annual-report' },
-  { label: 'Invoices', path: '/invoices' },
-  { label: 'Customers', path: '/customers' },
-  { label: 'Reports', path: '/reports' },
+  // { label: 'Invoices', path: '/invoices' },
+  // { label: 'Customers', path: '/customers' },
+  // { label: 'Reports', path: '/reports' },
 ];
 
 export default function Sidebar() {
