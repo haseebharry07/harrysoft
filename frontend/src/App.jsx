@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import CreateAccount from './pages/CreateAccount';
 import JournalVoucherForm from './pages/JournalVoucherForm';
@@ -18,7 +18,7 @@ const Reports = () => <h2>Reports</h2>;
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Layout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -35,7 +35,7 @@ function App() {
           <Route path="/reports" element={<Reports />} />
         </Routes>
       </Layout>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
