@@ -22,4 +22,11 @@ app.use('/api/cash-receipt-vouchers', require('./routes/cashReceiptVoucherRoutes
 app.use('/api/cash-payment-vouchers', require('./routes/cashPaymentVoucherRoutes'))
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Only listen when running locally (e.g. `node server.js` or nodemon).
+// On Vercel, the exported app is invoked as a serverless function instead.
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
+
+module.exports = app;
